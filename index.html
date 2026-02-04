@@ -939,19 +939,20 @@
                 </div>
             </div>
 
-            <div class="charts-grid" style="margin-top: 24px;">
-                <div class="chart-container">
-                    <h3 class="chart-title">Alerta: Alumnos con Alto Consumo Semanal</h3>
-                    <div class="slider-container">
-                        <span>Umbral mínimo:</span>
-                        <input type="range" id="sliderConsumo" min="3" max="10" value="5">
-                        <span class="slider-value" id="sliderValue">5</span>
-                        <span>sesiones/semana</span>
-                    </div>
-                    <div class="alert-box" id="alertaAltoConsumo">
-                        <ul class="alert-list" id="listaAltoConsumo"></ul>
-                    </div>
+            <div class="chart-container" style="margin-top: 24px;">
+                <h3 class="chart-title">Alerta: Alumnos con Alto Consumo Semanal</h3>
+                <div class="slider-container">
+                    <span>Umbral mínimo:</span>
+                    <input type="range" id="sliderConsumo" min="0" max="5" value="2" step="0.5">
+                    <span class="slider-value" id="sliderValue">2</span>
+                    <span>sesiones/semana</span>
                 </div>
+                <div class="alert-box" id="alertaAltoConsumo" style="max-height: 400px; overflow-y: auto;">
+                    <ul class="alert-list" id="listaAltoConsumo" style="column-count: 2; column-gap: 40px;"></ul>
+                </div>
+            </div>
+
+            <div class="charts-grid" style="margin-top: 24px;">
                 <div class="chart-container">
                     <h3 class="chart-title">Seguimiento Semanal de Alumnos</h3>
                     <p style="font-size: 13px; color: #a0aec0; margin-bottom: 12px;">
@@ -1726,7 +1727,7 @@
         }
 
         function actualizarAlertaAltoConsumo() {
-            const umbral = parseInt(document.getElementById('sliderConsumo').value);
+            const umbral = parseFloat(document.getElementById('sliderConsumo').value);
 
             // Calcular sesiones por alumno por semana
             const semanas = [...new Set(filteredData.map(d => d.añoSemana))];
@@ -1744,12 +1745,12 @@
 
             const lista = document.getElementById('listaAltoConsumo');
             if (altoConsumo.length === 0) {
-                lista.innerHTML = '<li style="color: #a0aec0;">No hay alumnos con consumo >= ' + umbral + ' sesiones/semana</li>';
+                lista.innerHTML = '<li style="color: #aaaaaa;">No hay alumnos con consumo >= ' + umbral + ' sesiones/semana</li>';
             } else {
                 lista.innerHTML = altoConsumo.map(([a, prom]) => `
-                    <li class="clickable" onclick="filtrarPorAlumno('${a}')" style="cursor:pointer;">
+                    <li class="clickable" onclick="filtrarPorAlumno('${a}')" style="cursor:pointer; break-inside: avoid;">
                         <span>${a}</span>
-                        <span style="color: #f6ad55; font-weight: 600;">${prom.toFixed(1)} ses/sem</span>
+                        <span style="color: #00d4aa; font-weight: 600;">${prom.toFixed(1)} ses/sem</span>
                     </li>
                 `).join('');
             }
