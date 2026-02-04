@@ -1508,17 +1508,39 @@
             const semanas = [...new Set(filteredData.map(d => d.añoSemana))].sort();
             const counts = semanas.map(s => filteredData.filter(d => d.añoSemana === s).length);
 
+            // Función para obtener fecha de inicio de semana
+            function getWeekStartDate(yearWeek) {
+                const [year, week] = yearWeek.split('-W');
+                const jan1 = new Date(parseInt(year), 0, 1);
+                const days = (parseInt(week) - 1) * 7;
+                const weekStart = new Date(jan1.getTime() + days * 24 * 60 * 60 * 1000);
+                // Ajustar al lunes de esa semana
+                const dayOfWeek = weekStart.getDay();
+                const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                weekStart.setDate(weekStart.getDate() + diff);
+                return weekStart;
+            }
+
+            const labels = semanas.map(s => {
+                const weekNum = s.split('-W')[1];
+                const startDate = getWeekStartDate(s);
+                const day = startDate.getDate();
+                const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                const month = monthNames[startDate.getMonth()];
+                return `${day}-${month}`;
+            });
+
             if (charts.tendenciaSemanal) charts.tendenciaSemanal.destroy();
 
             const ctx = document.getElementById('chartTendenciaSemanal').getContext('2d');
             charts.tendenciaSemanal = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: semanas.map(s => 'S' + s.split('-W')[1]),
+                    labels: labels,
                     datasets: [{
                         data: counts,
-                        borderColor: '#4fd1c5',
-                        backgroundColor: 'rgba(79, 209, 197, 0.1)',
+                        borderColor: '#00d4aa',
+                        backgroundColor: 'rgba(0, 212, 170, 0.1)',
                         tension: 0.3,
                         fill: true
                     }]
@@ -1528,8 +1550,8 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { color: 'rgba(99, 179, 237, 0.1)' }, ticks: { color: '#a0aec0', maxTicksLimit: 15 } },
-                        y: { grid: { color: 'rgba(99, 179, 237, 0.1)' }, ticks: { color: '#a0aec0' } }
+                        x: { grid: { color: 'rgba(74, 158, 255, 0.1)' }, ticks: { color: '#aaaaaa', maxTicksLimit: 12, maxRotation: 45, minRotation: 45 } },
+                        y: { grid: { color: 'rgba(74, 158, 255, 0.1)' }, ticks: { color: '#aaaaaa' } }
                     }
                 }
             });
