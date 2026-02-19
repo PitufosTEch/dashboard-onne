@@ -101,6 +101,17 @@
             font-family: 'Jost', sans-serif;
         }
 
+        /* Icono calendario visible en tema oscuro */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+            opacity: 0.7;
+            padding: 4px;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+
         .filter-group input:focus,
         .filter-group select:focus {
             outline: none;
@@ -580,7 +591,7 @@
                     <img src="https://www.onne.cl/wp-content/uploads/2025/07/logo_onne.png" alt="ONNE Training Studio" class="logo">
                     <div>
                         <h1>Dashboard Consumo Sesiones PT</h1>
-                        <p class="subtitle">Período: 01/07/2025 al 04/02/2026</p>
+                        <p class="subtitle" id="subtitlePeriodo">Período: cargando...</p>
                     </div>
                 </div>
                 <div id="activeFilters"></div>
@@ -928,6 +939,14 @@
             return fechaStr;
         }
 
+        // Formatear fecha YYYY-MM-DD a DD/MM/YYYY para visualizacion
+        function formatFecha(fechaStr) {
+            if (!fechaStr) return '';
+            const parts = fechaStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return fechaStr;
+        }
+
         function populateFilters() {
             const profesores = [...new Set(DATA.map(d => d.profesor))].filter(p => p).sort();
             const alumnos = [...new Set(DATA.map(d => d.alumno))].filter(a => a).sort();
@@ -1014,6 +1033,7 @@
                 if (FECHA_HASTA_DEFAULT < FECHA_MIN) FECHA_HASTA_DEFAULT = FECHA_MAX;
                 document.getElementById('fechaDesde').value = FECHA_MIN;
                 document.getElementById('fechaHasta').value = FECHA_HASTA_DEFAULT;
+                document.getElementById('subtitlePeriodo').textContent = 'Período: ' + formatFecha(FECHA_MIN) + ' al ' + formatFecha(FECHA_MAX);
                 populateFilters();
                 filteredData = DATA.filter(d => d.fecha >= FECHA_MIN && d.fecha <= FECHA_HASTA_DEFAULT);
                 loadingText.textContent = DATA.length + ' sesiones cargadas. Renderizando...';
@@ -1795,7 +1815,7 @@
             tbody.innerHTML = inactivos.map(r => `
                 <tr class="clickable" onclick="filtrarPorAlumno('${r.alumno}')">
                     <td>${r.alumno}</td>
-                    <td>${new Date(r.ultimaFecha).toLocaleDateString('es-CL')}</td>
+                    <td>${formatFecha(r.ultimaFecha)}</td>
                     <td style="color: #fc8181;">${r.dias} días</td>
                     <td>${r.totalSesiones}</td>
                     <td>${r.profesor}</td>
@@ -1933,7 +1953,7 @@
                 : inactivos.map(x => `
                     <li class="clickable" onclick="filtrarPorAlumno('${x.alumno}')" style="cursor:pointer;">
                         <span>${x.alumno}</span>
-                        <span style="color: #f6ad55;">${x.dias} días (última: ${new Date(x.fecha).toLocaleDateString('es-CL')})</span>
+                        <span style="color: #f6ad55;">${x.dias} días (última: ${formatFecha(x.fecha)})</span>
                     </li>
                 `).join('');
         }
