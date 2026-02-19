@@ -958,15 +958,8 @@
                 alumnos.map(a => `<option value="${a}">${a}</option>`).join('');
         }
 
-        async function loadData() {
-            const loadingText = document.getElementById('loadingText');
-            try {
-                loadingText.textContent = 'Descargando datos desde Google Sheets...';
-                const response = await fetch(SHEET_URL);
-                if (!response.ok) throw new Error('Error al descargar: ' + response.status);
-                const csv = await response.text();
-                loadingText.textContent = 'Procesando datos...';
-                const rows = parseCSV(csv);
+        // Procesar filas CSV ya parseadas y poblar DATA/DATA_PERDIDAS
+        function processRows(rows) {
                 const headers = rows[0];
                 const colMap = {};
                 headers.forEach((h, i) => { colMap[h] = i; });
@@ -1023,6 +1016,10 @@
                 }
                 DATA = allData;
                 DATA_PERDIDAS = perdidas;
+        }
+
+        // Configurar fechas, filtros y estado inicial despues de cargar datos
+        function initAfterLoad() {
                 const fechas = DATA.map(d => d.fecha).sort();
                 FECHA_MIN = fechas[0];
                 FECHA_MAX = fechas[fechas.length - 1];
@@ -1036,6 +1033,103 @@
                 document.getElementById('subtitlePeriodo').textContent = 'Período: ' + formatFecha(FECHA_MIN) + ' al ' + formatFecha(FECHA_MAX);
                 populateFilters();
                 filteredData = DATA.filter(d => d.fecha >= FECHA_MIN && d.fecha <= FECHA_HASTA_DEFAULT);
+        }
+
+        // Parsear respuesta JSON de Google Visualization API (gviz)
+        function parseGvizResponse(jsonText) {
+            // La respuesta viene como: google.visualization.Query.setResponse({...})
+            // o como: callback({...}) segun el responseHandler
+            const match = jsonText.match(/\{[\s\S]*\}/);
+            if (!match) throw new Error('Respuesta gviz invalida');
+            const data = JSON.parse(match[0]);
+            if (data.status === 'error') throw new Error(data.errors?.[0]?.message || 'Error en query');
+
+            const cols = data.table.cols;
+            const gvizRows = data.table.rows;
+
+            // Convertir a formato de filas string (como CSV parseado)
+            const headers = cols.map(c => c.label);
+            const rows = [headers];
+            gvizRows.forEach(r => {
+                const row = r.c.map((cell, i) => {
+                    if (!cell || cell.v === null || cell.v === undefined) return '';
+                    // Fechas vienen como "Date(2026,1,18)" (mes 0-indexed)
+                    if (cols[i].type === 'date' && typeof cell.v === 'string' && cell.v.startsWith('Date(')) {
+                        const parts = cell.v.match(/Date\((\d+),(\d+),(\d+)\)/);
+                        if (parts) {
+                            const y = parts[1];
+                            const m = String(parseInt(parts[2]) + 1).padStart(2, '0');
+                            const d = parts[3].padStart(2, '0');
+                            return `${d}-${m}-${y}`;
+                        }
+                    }
+                    // Datetime/timeofday
+                    if (cols[i].type === 'datetime' || cols[i].type === 'timeofday') {
+                        return cell.f || String(cell.v);
+                    }
+                    return String(cell.v);
+                });
+                rows.push(row);
+            });
+            return rows;
+        }
+
+        // Cargar via JSONP (funciona desde file:// y https://)
+        function loadDataJSONP() {
+            return new Promise((resolve, reject) => {
+                const callbackName = '_gsheetCallback_' + Date.now();
+                const JSONP_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${callbackName}`;
+
+                window[callbackName] = function(response) {
+                    try {
+                        const rows = parseGvizResponse(JSON.stringify(response));
+                        processRows(rows);
+                        resolve();
+                    } catch (e) {
+                        reject(e);
+                    } finally {
+                        delete window[callbackName];
+                        const s = document.getElementById('gsheetScript');
+                        if (s) s.remove();
+                    }
+                };
+
+                const script = document.createElement('script');
+                script.id = 'gsheetScript';
+                script.src = JSONP_URL;
+                script.onerror = function() {
+                    delete window[callbackName];
+                    script.remove();
+                    reject(new Error('No se pudo conectar a Google Sheets'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // Cargar via fetch CSV (funciona desde https://)
+        function loadDataFetch() {
+            return fetch(SHEET_URL)
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+                .then(csv => {
+                    const rows = parseCSV(csv);
+                    processRows(rows);
+                });
+        }
+
+        async function loadData() {
+            const loadingText = document.getElementById('loadingText');
+            try {
+                loadingText.textContent = 'Descargando datos desde Google Sheets...';
+                // Intentar fetch CSV primero (mas rapido), fallback a JSONP si falla (CORS en file://)
+                try {
+                    await loadDataFetch();
+                } catch (e) {
+                    console.log('Fetch fallo (CORS), usando JSONP...', e.message);
+                    loadingText.textContent = 'Conectando a Google Sheets...';
+                    await loadDataJSONP();
+                }
+                loadingText.textContent = 'Procesando datos...';
+                initAfterLoad();
                 loadingText.textContent = DATA.length + ' sesiones cargadas. Renderizando...';
                 console.log('Datos cargados: ' + DATA.length + ' sesiones, ' + DATA_PERDIDAS.length + ' perdidas');
                 console.log('Rango: ' + FECHA_MIN + ' a ' + FECHA_MAX);
